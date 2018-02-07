@@ -9,6 +9,7 @@ namespace Meizitu
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("欢迎~");
         }
     }
 }
