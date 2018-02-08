@@ -135,6 +135,8 @@ namespace Meizitu
                         {
                             try
                             {
+                                //绕过防盗链（使用 Fiddler4 对比盗链和非盗链的HTTP请求头信息即可）
+                                DownloadWebClient.Headers.Add(HttpRequestHeader.Referer, ArchivePackage.ArchiveLink);
                                 DownloadWebClient.DownloadFile(ImageLink, ImagePath);
                             }
                             catch (Exception ex)
