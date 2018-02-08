@@ -10,6 +10,8 @@ namespace Meizitu
 {
     class Program
     {
+        //TODO:www.meizitu.com???
+
         /// <summary>
         /// 全局数据库连接
         /// </summary>
@@ -36,9 +38,40 @@ namespace Meizitu
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
 
-            foreach (ArchiveModel ArchiveLink in ScanCatalog(UnityModule.CatalogAddress))
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine("\n数据库已存在文章数：{0}",
+                UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase").ToString());
+
+            foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
             {
-                //Console.WriteLine("扫描到文章：{0}", ArchiveLink.Item3);
+                if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                    Console.WriteLine("已存在的文章：{0}", ArchivePackage.Title);
+                }
+                else
+                {
+                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishYear, PublishMonth, PublishDay, ArchiveLink) VALUES({0}, '{1}', '{2}', '{3}', '{4}', '{5}') ;",
+                        ArchivePackage.ArchiveID,
+                        ArchivePackage.Title,
+                        ArchivePackage.PublishYear,
+                        ArchivePackage.PublishMonth,
+                        ArchivePackage.PublishDay,
+                        ArchivePackage.ArchiveLink))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("记录新文章信息：{0}", ArchivePackage.Title);
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("文章 {0}({1}/{2}/{3}) 记录插入数据仓库失败！",
+                            ArchivePackage.Title,
+                            ArchivePackage.PublishYear,
+                            ArchivePackage.PublishMonth,
+                            ArchivePackage.PublishDay);
+                    }
+                }
             }
 
             ExitApplication(0);
@@ -146,31 +179,42 @@ namespace Meizitu
             string CatalogByYearPattern = "<div class=\"year\">(?<PublishYear>.+?)</div><ul class=\"archives\">(?<CatalogByYear>.+?)</ul>";
             string CatalogByMonthPattern = "<li><p class=\"month\"><em>(?<PublishMonth>.+?)</em> \\((?<ArchiveCount>.+?)组妹子图 \\)</p>(?<CatalogByMonth>.+?)</li>";
             string CatalogByDayPattern = ">(?<PublishDay>.+?): <a href=\"(?<ArchiveLink>.+?)\".*?>(?<Title>.+?)</a>";
-
+            int TempArchiveID = 0, TempArchiveCount = 0;
+            string TempArchiveLink = string.Empty, TempTitle = string.Empty, TempPublishYear = string.Empty, TempPublishMonth = string.Empty, TempPublishDay = string.Empty;
             foreach (Match MatchByYear in new Regex(CatalogByYearPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(CatalogString))
             {
+                TempPublishYear = MatchByYear.Groups["PublishYear"].Value;
+
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("<<< 扫描到年份目录：{0} >>>", MatchByYear.Groups["PublishYear"].Value);
+                Console.WriteLine("<<< 扫描到年份目录：{0} >>>", TempPublishYear);
 
                 CatalogString = MatchByYear.Groups["CatalogByYear"].Value;
                 foreach (Match MatchByMonth in new Regex(CatalogByMonthPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(CatalogString))
                 {
+                    TempPublishMonth = MatchByMonth.Groups["PublishMonth"].Value;
+                    TempArchiveCount = int.Parse(MatchByMonth.Groups["ArchiveCount"].Value);
+
                     Console.ForegroundColor = ConsoleColor.Magenta;
-                    Console.WriteLine("    << 扫描到月份目录：{0} (共 {1} 组图) >>", MatchByMonth.Groups["PublishMonth"].Value, MatchByMonth.Groups["ArchiveCount"].Value);
+                    Console.WriteLine("    << 扫描到月份目录：{0} (共 {1} 组图) >>", TempPublishMonth, TempArchiveCount);
                     CatalogString = MatchByMonth.Groups["CatalogByMonth"].Value;
 
                     foreach (Match MatchByDay in new Regex(CatalogByDayPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(CatalogString))
                     {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("        文章：{0} - {1}", MatchByDay.Groups["PublishDay"].Value, MatchByDay.Groups["Title"].Value);
+                        TempArchiveID = Convert.ToInt32(Path.GetFileName(MatchByDay.Groups["ArchiveLink"].Value));
+                        TempTitle = MatchByDay.Groups["Title"].Value;
+                        TempPublishDay = MatchByDay.Groups["PublishDay"].Value;
+                        TempArchiveLink = MatchByDay.Groups["ArchiveLink"].Value;
+
+                        //Console.ForegroundColor = ConsoleColor.Yellow;
+                        //Console.WriteLine("        < 扫描到文章信息：{0} - {1} >", MatchByDay.Groups["PublishDay"].Value, MatchByDay.Groups["Title"].Value);
                         yield return new ArchiveModel()
                         {
-                            ArchiveID = Convert.ToInt32(Path.GetFileName(MatchByDay.Groups["ArchiveLink"].Value)),
-                            ArchiveLink = MatchByDay.Groups["ArchiveLink"].Value,
-                            Title = MatchByDay.Groups["Title"].Value,
-                            PublishYear = MatchByYear.Groups["CatalogByYear"].Value,
-                            PublishMonth = MatchByMonth.Groups["CatalogByMonth"].Value,
-                            PublishDay = MatchByDay.Groups["PublishDay"].Value,
+                            ArchiveID = TempArchiveID,
+                            ArchiveLink = TempArchiveLink,
+                            Title = TempTitle,
+                            PublishYear = TempPublishYear,
+                            PublishMonth = TempPublishMonth,
+                            PublishDay = TempPublishDay,
                         };
                     }
                 }
