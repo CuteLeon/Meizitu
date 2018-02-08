@@ -60,8 +60,8 @@ namespace Meizitu
             {
                 if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
                 {
-                    Console.ForegroundColor = ConsoleColor.Gray;
-                    Console.WriteLine("已存在的文章：{0}", ArchivePackage.Title);
+                    //Console.ForegroundColor = ConsoleColor.Gray;
+                    //Console.WriteLine("已存在的文章：{0}", ArchivePackage.Title);
                 }
                 else
                 {
@@ -90,7 +90,7 @@ namespace Meizitu
 
             foreach (ImageModel ImagePackage in ScanArchive(@"http://www.mzitu.com/119604"))
             {
-                //UnityModule.DebugPrint(ImagePackage.ImageLink);
+                UnityModule.DebugPrint(ImagePackage.ImageLink);
             }
 
             ExitApplication(0);
@@ -267,7 +267,7 @@ namespace Meizitu
                     if (ErrorTime ++> 0) Thread.Sleep(500);
                     ArchiveString = GetHTML(ArchivePageLink);
                 }
-                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <1);
+                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <10);
                 if (string.IsNullOrEmpty(ArchiveString)) continue;
 
                 ArchiveMatch = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArchiveString);
@@ -281,7 +281,7 @@ namespace Meizitu
                 };
 
                 if (!ArchivePageLink.StartsWith(ArchiveLink)) yield break;
-                UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
+                //UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
             }
             yield break;
         }
