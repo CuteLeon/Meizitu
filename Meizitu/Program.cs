@@ -5,12 +5,12 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Meizitu
 {
     class Program
     {
-        //TODO:www.meizitu.com???
 
         /// <summary>
         /// 全局数据库连接
@@ -30,18 +30,32 @@ namespace Meizitu
             public string ArchiveLink;
         }
 
+        /// <summary>
+        /// 图片信息
+        /// </summary>
+        private struct ImageModel
+        {
+            public int ArchiveID;
+            public string ImageLink;
+        }
+
         static void Main(string[] args)
         {
-            Console.WriteLine("欢迎~\t{0}", DateTime.Now);
+            Console.WriteLine("{0}\t欢迎~", DateTime.Now);
+
+            do
+            {
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.Write("\n亲爱的 {0} ，准备好进入新世界了吗 ？(YES)\n\t", Environment.UserName);
+                Console.ForegroundColor = ConsoleColor.Red;
+            } while (Console.ReadLine().Trim().ToUpper() != "YES");
+            Console.Clear();
 
             ShowEnvironment();
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
 
-            Console.ForegroundColor = ConsoleColor.Gray;
-            Console.WriteLine("\n数据库已存在文章数：{0}",
-                UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase").ToString());
-
+            //存储文章目录信息
             foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
             {
                 if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
@@ -72,6 +86,11 @@ namespace Meizitu
                             ArchivePackage.PublishDay);
                     }
                 }
+            }
+
+            foreach (ImageModel ImagePackage in ScanArchive(@"http://www.mzitu.com/119604"))
+            {
+                //UnityModule.DebugPrint(ImagePackage.ImageLink);
             }
 
             ExitApplication(0);
@@ -224,6 +243,50 @@ namespace Meizitu
         }
 
         /// <summary>
+        /// 扫描文章内容
+        /// </summary>
+        /// <param name="ArchiveLink">文章链接</param>
+        /// <returns>内容信息</returns>
+        private static IEnumerable<ImageModel> ScanArchive(string ArchiveLink)
+        {
+            int TempArchiveID = Convert.ToInt32(Path.GetFileName(ArchiveLink));
+            string ArchivePageLink = string.Empty, ArchiveString = string.Empty;
+            string ImagePattern = "<div class=\"main-image\"><p><a href=\"(?<NextPageLink>.+?)\" ><img src=\"(?<ImageLink>.+?)\".*?/></a></p>";
+            Queue<string> ArchiveLinkQueue = new Queue<string>();
+            Match ArchiveMatch = null;
+
+            ArchiveLinkQueue.Enqueue(ArchiveLink);
+            while (ArchiveLinkQueue.Count > 0) 
+            {
+                int ErrorTime = 0;
+                ArchivePageLink = ArchiveLinkQueue.Dequeue();
+                UnityModule.DebugPrint("链接出队：{0}", ArchivePageLink);
+
+                do
+                {
+                    if (ErrorTime ++> 0) Thread.Sleep(500);
+                    ArchiveString = GetHTML(ArchivePageLink);
+                }
+                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <1);
+                if (string.IsNullOrEmpty(ArchiveString)) continue;
+
+                ArchiveMatch = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArchiveString);
+                ArchivePageLink = ArchiveMatch.Groups["NextPageLink"].Value as string;
+                //一组照片的最后一张的链接会指向另一组照片
+                ArchiveLinkQueue.Enqueue(ArchivePageLink);
+                yield return new ImageModel()
+                {
+                    ArchiveID = TempArchiveID,
+                    ImageLink = ArchiveMatch.Groups["ImageLink"].Value as string,
+                };
+
+                if (!ArchivePageLink.StartsWith(ArchiveLink)) yield break;
+                UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
+            }
+            yield break;
+        }
+
+        /// <summary>
         /// 获取网页内容
         /// </summary>
         /// <param name="Pagelink">网页链接</param>
@@ -253,5 +316,6 @@ namespace Meizitu
             UnityDBController?.CloseConnection();
             Console.Read();
         }
+
     }
 }
