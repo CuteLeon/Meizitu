@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Meizitu
 {
@@ -29,16 +32,7 @@ namespace Meizitu
             public string PublishDay;
             public string ArchiveLink;
         }
-
-        /// <summary>
-        /// 图片信息
-        /// </summary>
-        private struct ImageModel
-        {
-            public int ArchiveID;
-            public string ImageLink;
-        }
-
+        
         static void Main(string[] args)
         {
             Console.WriteLine("{0}\t欢迎~", DateTime.Now);
@@ -54,8 +48,9 @@ namespace Meizitu
             ShowEnvironment();
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
-
+            //Console.WriteLine(Convert.ToInt32( UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CATALOGBASE")).ToString());
             //存储文章目录信息
+            /*
             foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
             {
                 if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
@@ -87,11 +82,76 @@ namespace Meizitu
                     }
                 }
             }
+            */
 
-            foreach (ImageModel ImagePackage in ScanArchive(@"http://www.mzitu.com/119604"))
+            List<ArchiveModel> ArchivePackageList = new List<ArchiveModel>();
+
+            Console.WriteLine("\n开始分析文章内容：\n");
+            using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter("SELECT * FROM CatalogBase"))
             {
-                UnityModule.DebugPrint(ImagePackage.ImageLink);
+                DataTable CatalogTable = new DataTable();
+                CatalogAdapter.Fill(CatalogTable);
+                foreach (DataRow CatalogRow in CatalogTable.Rows)
+                {
+                    ArchivePackageList.Add(new ArchiveModel()
+                    {
+                        ArchiveID = Convert.ToInt32(CatalogRow["ArchiveID"]),
+                        ArchiveLink = CatalogRow["ArchiveLink"] as string,
+                        Title = CatalogRow["Title"] as string,
+                        PublishYear = CatalogRow["PublishYear"] as string,
+                        PublishMonth = CatalogRow["PublishMonth"] as string,
+                        PublishDay = CatalogRow["PublishDay"] as string,
+                    });
+                }
+                CatalogTable?.Clear();
+                CatalogTable?.Dispose();
             }
+            Parallel.ForEach(ArchivePackageList, new Action<ArchiveModel>((ArchivePackage) => {
+                string ImagePath = string.Empty, ArchiveDirectory = string.Empty, TempTitle = ArchivePackage.Title;
+                TempTitle = TempTitle.Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s");
+                ArchiveDirectory = Path.Combine(UnityModule.ContentDirectory, TempTitle);
+                try
+                {
+                    if (!Directory.Exists(ArchiveDirectory))
+                    {
+                        Console.WriteLine("创建新目录：{0}", ArchiveDirectory);
+                        Directory.CreateDirectory(ArchiveDirectory);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.Print(ArchiveDirectory);
+                    Console.WriteLine("创建文章目录失败：{0} / {1}",ArchiveDirectory, ex.Message);
+                }
+                UnityDBController.ExecuteNonQuery("DELETE FROM ImageBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID);
+                foreach (string ImageLink in ScanArchive(ArchivePackage.ArchiveLink))
+                {
+                    ImagePath = Path.Combine(ArchiveDirectory, Path.GetFileName(ImageLink));
+
+                    if (UnityDBController.ExecuteNonQuery("INSERT INTO ImageBase (ArchiveID, ImageLink, ImagePath) VALUES({0}, '{1}', '{2}') ;",
+                        ArchivePackage.ArchiveID, ImageLink, ImagePath))
+                    {
+                        using (WebClient DownloadWebClient = new WebClient() {  Encoding = Encoding.UTF8})
+                        {
+                            try
+                            {
+                                DownloadWebClient.DownloadFile(ImageLink, ImagePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("下载图像遇到错误：{0}", ex.Message);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("图像记录插入数据仓库失败：{0}", ImageLink);
+                    }
+                }
+            }));
+
+            Console.WriteLine("\n文章扫描完毕！");
 
             ExitApplication(0);
         }
@@ -247,8 +307,11 @@ namespace Meizitu
         /// </summary>
         /// <param name="ArchiveLink">文章链接</param>
         /// <returns>内容信息</returns>
-        private static IEnumerable<ImageModel> ScanArchive(string ArchiveLink)
+        private static IEnumerable<string> ScanArchive(string ArchiveLink)
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\n开始扫描文章：{0}", ArchiveLink);
+
             int TempArchiveID = Convert.ToInt32(Path.GetFileName(ArchiveLink));
             string ArchivePageLink = string.Empty, ArchiveString = string.Empty;
             string ImagePattern = "<div class=\"main-image\"><p><a href=\"(?<NextPageLink>.+?)\" ><img src=\"(?<ImageLink>.+?)\".*?/></a></p>";
@@ -268,17 +331,18 @@ namespace Meizitu
                     ArchiveString = GetHTML(ArchivePageLink);
                 }
                 while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <10);
-                if (string.IsNullOrEmpty(ArchiveString)) continue;
+                if (string.IsNullOrEmpty(ArchiveString))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("下载页面失败多次，已跳过：{0}", ArchivePageLink);
+                    continue;
+                }
 
                 ArchiveMatch = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArchiveString);
                 ArchivePageLink = ArchiveMatch.Groups["NextPageLink"].Value as string;
                 //一组照片的最后一张的链接会指向另一组照片
                 ArchiveLinkQueue.Enqueue(ArchivePageLink);
-                yield return new ImageModel()
-                {
-                    ArchiveID = TempArchiveID,
-                    ImageLink = ArchiveMatch.Groups["ImageLink"].Value as string,
-                };
+                yield return ArchiveMatch.Groups["ImageLink"].Value as string;
 
                 if (!ArchivePageLink.StartsWith(ArchiveLink)) yield break;
                 //UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
@@ -302,7 +366,7 @@ namespace Meizitu
                 }
             } catch(Exception ex)
             {
-                Console.WriteLine("获取网页内容遇到异常：{0}", ex.Message);
+                UnityModule.DebugPrint("获取网页内容遇到异常：{0}", ex.Message);
                 return string.Empty;
             }
         }

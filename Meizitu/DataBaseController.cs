@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data;
 using System.Data.OleDb;
+using System.Threading;
 
 namespace Meizitu
 {
@@ -80,7 +81,9 @@ namespace Meizitu
 
             try
             {
+                Monitor.Enter(DataBaseCommand);
                 OleDbDataAdapter DataAdapter = new OleDbDataAdapter(SQLCommand, DataBaseConnection);
+                Monitor.Exit(DataBaseCommand);
                 UnityModule.DebugPrint("命令执行成功：" + SQLCommand);
                 return DataAdapter;
             }
@@ -122,8 +125,10 @@ namespace Meizitu
 
             try
             {
+                Monitor.Enter(DataBaseCommand);
                 DataBaseCommand.CommandText = SQLCommand;
                 DataBaseCommand.ExecuteNonQuery();
+                Monitor.Exit(DataBaseCommand);
                 UnityModule.DebugPrint("命令执行成功：" + SQLCommand);
                 return true;
             }
@@ -165,8 +170,10 @@ namespace Meizitu
 
             try
             {
+                Monitor.Enter(DataBaseCommand);
                 DataBaseCommand.CommandText = SQLCommand;
                 OleDbDataReader DataReader=DataBaseCommand.ExecuteReader();
+                Monitor.Exit(DataBaseCommand);
                 UnityModule.DebugPrint("命令执行成功：" + SQLCommand);
                 return DataReader;
             }
@@ -208,8 +215,10 @@ namespace Meizitu
 
             try
             {
+                Monitor.Enter(DataBaseCommand);
                 DataBaseCommand.CommandText = SQLCommand;
                 object DataValue = DataBaseCommand.ExecuteScalar();
+                Monitor.Exit(DataBaseCommand);
                 UnityModule.DebugPrint("命令执行成功：" + SQLCommand);
                 return DataValue;
             }
