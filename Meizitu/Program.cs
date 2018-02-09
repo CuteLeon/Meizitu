@@ -181,6 +181,7 @@ namespace Meizitu
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("\n出错误的图像链接：\n{0}", string.Join("\n    ", ErrorImageLink));
             }
+
             ExitApplication(0);
         }
 
@@ -358,7 +359,7 @@ namespace Meizitu
                     if (ErrorTime ++> 0) Thread.Sleep(1000);
                     ArchiveString = GetHTML(ArchivePageLink);
                 }
-                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <10);
+                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <20);
                 if (string.IsNullOrEmpty(ArchiveString))
                 {
                     UnityModule.DebugPrint("下载页面失败多次，已跳过：{0}", ArchivePageLink);
