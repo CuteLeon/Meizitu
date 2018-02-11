@@ -62,15 +62,15 @@ namespace Meizitu
 
             Console.WriteLine("\n开始分析文章内容：\n");
             //针对日期下载文章
-            /*
             using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter(
                 "SELECT * FROM CatalogBase WHERE PublishYear = '{0}年' AND PublishMonth = '{1}月' AND PublishDay IN ({2}) ;",
                 DateTime.Now.Year,
                 DateTime.Now.Month.ToString("00"),
-                "'08日', '09日'"
+                GetSQLDayString(DateTime.Now.Date.Day - 3, DateTime.Now.Date.Day)
                 ))
-             */
+            /*
             using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter("SELECT * FROM CatalogBase"))
+             */
             {
                 DataTable CatalogTable = new DataTable();
                 CatalogAdapter.Fill(CatalogTable);
@@ -165,6 +165,16 @@ namespace Meizitu
             }
 
             ExitApplication(0);
+        }
+
+        private static string GetSQLDayString(int StartDay, int EndDay)
+        {
+            string SQLCommandValue = string.Format("'{0}日'", StartDay);
+            for (int Index = StartDay + 1; Index <= EndDay; Index++)
+            {
+                SQLCommandValue += string.Format(", '{0}日'", Index);
+            }
+            return SQLCommandValue;
         }
 
         /// <summary>
