@@ -30,9 +30,9 @@ namespace Meizitu
         {
             public int ArchiveID;
             public string Title;
-            public string PublishYear;
-            public string PublishMonth;
-            public string PublishDay;
+            public int PublishYear;
+            public int PublishMonth;
+            public int PublishDay;
             public string ArchiveLink;
         }
         
@@ -55,18 +55,26 @@ namespace Meizitu
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
 
+            DateTime MaxDate = DateTime.MinValue;
+            object MaxDateObject = UnityDBController.ExecuteScalar("SELECT MAX(PublishDate) FROM CatalogBase ;");
+            if (MaxDateObject != DBNull.Value) MaxDate = Convert.ToDateTime(MaxDateObject);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("\n当前数据库最晚文章记录：{0}", MaxDate.Date.ToString("yyyy-MM-dd"));
             //存储文章目录信息
             GetCatalog();
 
-            List<ArchiveModel> ArchivePackageList = new List<ArchiveModel>();
+            do
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write("\n亲爱的 {0} ，要开始下载组图吗 ？(YES)\n\t", Environment.UserName);
+                Console.ForegroundColor = ConsoleColor.Red;
+            } while (Console.ReadLine().Trim().ToUpper() != "YES");
 
+            List<ArchiveModel> ArchivePackageList = new List<ArchiveModel>();
             Console.WriteLine("\n开始分析文章内容：\n");
             //针对日期下载文章
             using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter(
-                "SELECT * FROM CatalogBase WHERE PublishYear = '{0}年' AND PublishMonth = '{1}月' AND PublishDay IN ({2}) ;",
-                DateTime.Now.Year,
-                DateTime.Now.Month.ToString("00"),
-                GetSQLDayString(DateTime.Now.Date.Day - 3, DateTime.Now.Date.Day)
+                $"SELECT * FROM CatalogBase WHERE PublishDate >= #{MaxDate.Date}# ;"
                 ))
             /*
             using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter("SELECT * FROM CatalogBase"))
@@ -76,14 +84,16 @@ namespace Meizitu
                 CatalogAdapter.Fill(CatalogTable);
                 foreach (DataRow CatalogRow in CatalogTable.Rows)
                 {
+                    DateTime PublishDate = Convert.ToDateTime(CatalogRow["PublishDate"]);
+
                     ArchivePackageList.Add(new ArchiveModel()
                     {
                         ArchiveID = Convert.ToInt32(CatalogRow["ArchiveID"]),
                         ArchiveLink = CatalogRow["ArchiveLink"] as string,
                         Title = CatalogRow["Title"] as string,
-                        PublishYear = CatalogRow["PublishYear"] as string,
-                        PublishMonth = CatalogRow["PublishMonth"] as string,
-                        PublishDay = CatalogRow["PublishDay"] as string,
+                        PublishYear = PublishDate.Year,
+                        PublishMonth = PublishDate.Month,
+                        PublishDay = PublishDate.Day,
                     });
                 }
                 CatalogTable?.Clear();
@@ -165,16 +175,6 @@ namespace Meizitu
             }
 
             ExitApplication(0);
-        }
-
-        private static string GetSQLDayString(int StartDay, int EndDay)
-        {
-            string SQLCommandValue = string.Format("'{0}日'", StartDay);
-            for (int Index = StartDay + 1; Index <= EndDay; Index++)
-            {
-                SQLCommandValue += string.Format(", '{0}日'", Index);
-            }
-            return SQLCommandValue;
         }
 
         /// <summary>
@@ -272,12 +272,10 @@ namespace Meizitu
                 }
                 else
                 {
-                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishYear, PublishMonth, PublishDay, ArchiveLink) VALUES({0}, '{1}', '{2}', '{3}', '{4}', '{5}') ;",
+                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishDate, ArchiveLink) VALUES({0}, '{1}', #{2}#, '{3}') ;",
                         ArchivePackage.ArchiveID,
                         ArchivePackage.Title,
-                        ArchivePackage.PublishYear,
-                        ArchivePackage.PublishMonth,
-                        ArchivePackage.PublishDay,
+                        string.Format("{0}/{1}/{2}",  ArchivePackage.PublishYear, ArchivePackage.PublishMonth, ArchivePackage.PublishDay),
                         ArchivePackage.ArchiveLink))
                     {
                         Console.ForegroundColor = ConsoleColor.Yellow;
@@ -314,14 +312,15 @@ namespace Meizitu
             CatalogString = new Regex(CatalogPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(CatalogString).Value;
             if (string.IsNullOrEmpty(CatalogString)) yield break;
 
-            string CatalogByYearPattern = "<div class=\"year\">(?<PublishYear>.+?)</div><ul class=\"archives\">(?<CatalogByYear>.+?)</ul>";
-            string CatalogByMonthPattern = "<li><p class=\"month\"><em>(?<PublishMonth>.+?)</em> \\((?<ArchiveCount>.+?)组妹子图 \\)</p>(?<CatalogByMonth>.+?)</li>";
-            string CatalogByDayPattern = ">(?<PublishDay>.+?): <a href=\"(?<ArchiveLink>.+?)\".*?>(?<Title>.+?)</a>";
+            string CatalogByYearPattern = "<div class=\"year\">(?<PublishYear>.+?)年</div><ul class=\"archives\">(?<CatalogByYear>.+?)</ul>";
+            string CatalogByMonthPattern = "<li><p class=\"month\"><em>(?<PublishMonth>.+?)月</em> \\((?<ArchiveCount>.+?)组妹子图 \\)</p>(?<CatalogByMonth>.+?)</li>";
+            string CatalogByDayPattern = ">(?<PublishDay>.+?)日: <a href=\"(?<ArchiveLink>.+?)\".*?>(?<Title>.+?)</a>";
             int TempArchiveID = 0, TempArchiveCount = 0;
-            string TempArchiveLink = string.Empty, TempTitle = string.Empty, TempPublishYear = string.Empty, TempPublishMonth = string.Empty, TempPublishDay = string.Empty;
+            string TempArchiveLink = string.Empty, TempTitle = string.Empty;
+            int TempPublishYear = 0, TempPublishMonth = 0, TempPublishDay = 0;
             foreach (Match MatchByYear in new Regex(CatalogByYearPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(CatalogString))
             {
-                TempPublishYear = MatchByYear.Groups["PublishYear"].Value;
+                TempPublishYear = Convert.ToInt32(MatchByYear.Groups["PublishYear"].Value);
 
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("<<< 扫描到年份目录：{0} >>>", TempPublishYear);
@@ -329,7 +328,7 @@ namespace Meizitu
                 CatalogString = MatchByYear.Groups["CatalogByYear"].Value;
                 foreach (Match MatchByMonth in new Regex(CatalogByMonthPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(CatalogString))
                 {
-                    TempPublishMonth = MatchByMonth.Groups["PublishMonth"].Value;
+                    TempPublishMonth = Convert.ToInt32(MatchByMonth.Groups["PublishMonth"].Value);
                     TempArchiveCount = int.Parse(MatchByMonth.Groups["ArchiveCount"].Value);
 
                     Console.ForegroundColor = ConsoleColor.Magenta;
@@ -340,7 +339,7 @@ namespace Meizitu
                     {
                         TempArchiveID = Convert.ToInt32(Path.GetFileName(MatchByDay.Groups["ArchiveLink"].Value));
                         TempTitle = MatchByDay.Groups["Title"].Value;
-                        TempPublishDay = MatchByDay.Groups["PublishDay"].Value;
+                        TempPublishDay = Convert.ToInt32(MatchByDay.Groups["PublishDay"].Value);
                         TempArchiveLink = MatchByDay.Groups["ArchiveLink"].Value;
 
                         //Console.ForegroundColor = ConsoleColor.Yellow;
