@@ -38,6 +38,9 @@ namespace Meizitu
         
         static void Main(string[] args)
         {
+            //TODO: http://www.meizit.com/
+            //TODO: http://www.mzitu.com/zipai/
+
             Console.WriteLine("{0}\t欢迎~", DateTime.Now);
 
             do
@@ -51,44 +54,23 @@ namespace Meizitu
             ShowEnvironment();
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
-            
+
             //存储文章目录信息
-            foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
-            {
-                if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
-                {
-                    //Console.ForegroundColor = ConsoleColor.Gray;
-                    //Console.WriteLine("已存在的文章：{0}", ArchivePackage.Title);
-                }
-                else
-                {
-                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishYear, PublishMonth, PublishDay, ArchiveLink) VALUES({0}, '{1}', '{2}', '{3}', '{4}', '{5}') ;",
-                        ArchivePackage.ArchiveID,
-                        ArchivePackage.Title,
-                        ArchivePackage.PublishYear,
-                        ArchivePackage.PublishMonth,
-                        ArchivePackage.PublishDay,
-                        ArchivePackage.ArchiveLink))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("记录新文章信息：{0}", ArchivePackage.Title);
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("文章 {0}({1}/{2}/{3}) 记录插入数据仓库失败！",
-                            ArchivePackage.Title,
-                            ArchivePackage.PublishYear,
-                            ArchivePackage.PublishMonth,
-                            ArchivePackage.PublishDay);
-                    }
-                }
-            }
+            GetCatalog();
 
             List<ArchiveModel> ArchivePackageList = new List<ArchiveModel>();
 
             Console.WriteLine("\n开始分析文章内容：\n");
+            //针对日期下载文章
+            using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter(
+                "SELECT * FROM CatalogBase WHERE PublishYear = '{0}年' AND PublishMonth = '{1}月' AND PublishDay IN ({2}) ;",
+                DateTime.Now.Year,
+                DateTime.Now.Month.ToString("00"),
+                GetSQLDayString(DateTime.Now.Date.Day - 3, DateTime.Now.Date.Day)
+                ))
+            /*
             using (DbDataAdapter CatalogAdapter = UnityDBController.ExecuteAdapter("SELECT * FROM CatalogBase"))
+             */
             {
                 DataTable CatalogTable = new DataTable();
                 CatalogAdapter.Fill(CatalogTable);
@@ -185,6 +167,16 @@ namespace Meizitu
             ExitApplication(0);
         }
 
+        private static string GetSQLDayString(int StartDay, int EndDay)
+        {
+            string SQLCommandValue = string.Format("'{0}日'", StartDay);
+            for (int Index = StartDay + 1; Index <= EndDay; Index++)
+            {
+                SQLCommandValue += string.Format(", '{0}日'", Index);
+            }
+            return SQLCommandValue;
+        }
+
         /// <summary>
         /// 输出环境信息
         /// </summary>
@@ -264,6 +256,44 @@ namespace Meizitu
                 return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// 扫描并存储目录
+        /// </summary>
+        private static void GetCatalog()
+        {
+            foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
+            {
+                if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
+                {
+                    //Console.ForegroundColor = ConsoleColor.Gray;
+                    //Console.WriteLine("已存在的文章：{0}", ArchivePackage.Title);
+                }
+                else
+                {
+                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishYear, PublishMonth, PublishDay, ArchiveLink) VALUES({0}, '{1}', '{2}', '{3}', '{4}', '{5}') ;",
+                        ArchivePackage.ArchiveID,
+                        ArchivePackage.Title,
+                        ArchivePackage.PublishYear,
+                        ArchivePackage.PublishMonth,
+                        ArchivePackage.PublishDay,
+                        ArchivePackage.ArchiveLink))
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("记录新文章信息：{0}", ArchivePackage.Title);
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("文章 {0}({1}/{2}/{3}) 记录插入数据仓库失败！",
+                            ArchivePackage.Title,
+                            ArchivePackage.PublishYear,
+                            ArchivePackage.PublishMonth,
+                            ArchivePackage.PublishDay);
+                    }
+                }
+            }
         }
 
         /// <summary>
