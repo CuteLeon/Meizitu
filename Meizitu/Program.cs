@@ -173,13 +173,13 @@ namespace Meizitu
             if (ErrorArchiveLink.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n出错误的文章链接：\n{0}", string.Join("\n    ", ErrorArchiveLink));
+                Console.WriteLine("\n出错误的文章链接：\n    {0}", string.Join("\n    ", ErrorArchiveLink));
             }
 
-            if (ErrorArchiveLink.Count > 0)
+            if (ErrorImageLink.Count > 0)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n出错误的图像链接：\n{0}", string.Join("\n    ", ErrorImageLink));
+                Console.WriteLine("\n出错误的图像链接：\n    {0}", string.Join("\n    ", ErrorImageLink));
             }
 
             ExitApplication(0);
