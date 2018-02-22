@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -10,7 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Meizitu
+namespace mzitu
 {
     class Program
     {
@@ -63,13 +64,45 @@ namespace Meizitu
             //存储文章目录信息
             GetCatalog();
 
-            do
+            if (UnityModule.NewArchiveCount > 0)
+            {
+                do
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("\n亲爱的 {0} ，要开始下载组图吗 ？(YES)\n\t", Environment.UserName);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                } while (Console.ReadLine().Trim().ToUpper() != "YES");
+
+                DownloadArchives(MaxDate);
+
+                if (ErrorArchiveLink.Count > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\n出错误的文章链接：\n    {0}", string.Join("\n    ", ErrorArchiveLink));
+                }
+
+                if (ErrorImageLink.Count > 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("\n出错误的图像链接：\n    {0}", string.Join("\n    ", ErrorImageLink));
+                }
+            }
+            else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write("\n亲爱的 {0} ，要开始下载组图吗 ？(YES)\n\t", Environment.UserName);
-                Console.ForegroundColor = ConsoleColor.Red;
-            } while (Console.ReadLine().Trim().ToUpper() != "YES");
+                Console.WriteLine("\n\t\t未发现更新的文章...");
+                Console.WriteLine("—————— <<< Nothing to Download . >>> ——————");
+            }
 
+            ExitApplication(0);
+        }
+
+        /// <summary>
+        /// 下载新文章
+        /// </summary>
+        /// <param name="MaxDate">开始日期</param>
+        private static void DownloadArchives(DateTime MaxDate)
+        {
             List<ArchiveModel> ArchivePackageList = new List<ArchiveModel>();
             Console.WriteLine("\n开始分析文章内容：\n");
             //针对日期下载文章
@@ -114,7 +147,7 @@ namespace Meizitu
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.Print(ArchiveDirectory);
-                    Console.WriteLine("创建文章目录失败：{0} / {1}",ArchiveDirectory, ex.Message);
+                    Console.WriteLine("创建文章目录失败：{0} / {1}", ArchiveDirectory, ex.Message);
                 }
                 UnityDBController.ExecuteNonQuery("DELETE FROM ImageBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID);
                 foreach (string ImageLink in ScanArchive(ArchivePackage.ArchiveLink))
@@ -126,7 +159,7 @@ namespace Meizitu
                     {
                         if (!File.Exists(ImagePath))
                         {
-                            using (WebClient DownloadWebClient = new WebClient() {  Encoding = Encoding.UTF8})
+                            using (WebClient DownloadWebClient = new WebClient() { Encoding = Encoding.UTF8 })
                             {
                                 try
                                 {
@@ -136,7 +169,7 @@ namespace Meizitu
                                 }
                                 catch (Exception ex)
                                 {
-                                    
+
                                     UnityModule.DebugPrint("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
                                     Console.ForegroundColor = ConsoleColor.Red;
                                     Console.WriteLine("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
@@ -160,21 +193,8 @@ namespace Meizitu
             }));
 
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("\n全部文章下载完毕！！！{0}", DateTime.Now.ToString());
-
-            if (ErrorArchiveLink.Count > 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n出错误的文章链接：\n    {0}", string.Join("\n    ", ErrorArchiveLink));
-            }
-
-            if (ErrorImageLink.Count > 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n出错误的图像链接：\n    {0}", string.Join("\n    ", ErrorImageLink));
-            }
-
-            ExitApplication(0);
+            Console.WriteLine("\n\t\t全部文章下载完毕！！！{0}", DateTime.Now.ToString());
+            Console.WriteLine("—————— <<< Download Finished . >>> ——————");
         }
 
         /// <summary>
@@ -222,7 +242,7 @@ namespace Meizitu
                 try
                 {
                     Console.WriteLine("生成数据库：{0}", UnityModule.DataBasePath);
-                    FileController.SaveResource(UnityResource.Meizitu, UnityModule.DataBasePath);
+                    FileController.SaveResource(UnityResource.mzitu, UnityModule.DataBasePath);
                 }
                 catch (Exception ex)
                 {
@@ -263,6 +283,7 @@ namespace Meizitu
         /// </summary>
         private static void GetCatalog()
         {
+            UnityModule.NewArchiveCount = 0;
             foreach (ArchiveModel ArchivePackage in ScanCatalog(UnityModule.CatalogAddress))
             {
                 if (Convert.ToInt32(UnityDBController.ExecuteScalar("SELECT COUNT(*) FROM CatalogBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID)) > 0)
@@ -278,6 +299,7 @@ namespace Meizitu
                         string.Format("{0}/{1}/{2}",  ArchivePackage.PublishYear, ArchivePackage.PublishMonth, ArchivePackage.PublishDay),
                         ArchivePackage.ArchiveLink))
                     {
+                        UnityModule.NewArchiveCount++;
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine("记录新文章信息：{0}", ArchivePackage.Title);
                     }
@@ -442,6 +464,7 @@ namespace Meizitu
             Console.WriteLine("\n应用程序即将退出...");
             UnityDBController?.CloseConnection();
             Console.Read();
+            if(ExitCode==0) Process.Start("explorer.exe", UnityModule.ContentDirectory);
         }
 
     }

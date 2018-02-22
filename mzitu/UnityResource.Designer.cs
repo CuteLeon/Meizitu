@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Meizitu {
+namespace mzitu {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Meizitu {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Meizitu.UnityResource", typeof(UnityResource).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("mzitu.UnityResource", typeof(UnityResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -63,9 +63,9 @@ namespace Meizitu {
         /// <summary>
         ///   查找 System.Byte[] 类型的本地化资源。
         /// </summary>
-        internal static byte[] Meizitu {
+        internal static byte[] mzitu {
             get {
-                object obj = ResourceManager.GetObject("Meizitu", resourceCulture);
+                object obj = ResourceManager.GetObject("mzitu", resourceCulture);
                 return ((byte[])(obj));
             }
         }

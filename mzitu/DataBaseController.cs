@@ -8,7 +8,7 @@ using System.Data;
 using System.Data.OleDb;
 using System.Threading;
 
-namespace Meizitu
+namespace mzitu
 {
     /// <summary>
     /// 数据库处理

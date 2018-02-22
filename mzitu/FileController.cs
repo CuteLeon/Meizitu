@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Meizitu
+namespace mzitu
 {
     static public class FileController
     {

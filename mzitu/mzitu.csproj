@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{A5A02A6A-2ABD-4056-AED7-79DE4FE04A35}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>Meizitu</RootNamespace>
-    <AssemblyName>Meizitu</AssemblyName>
+    <RootNamespace>mzitu</RootNamespace>
+    <AssemblyName>mzitu</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -52,7 +52,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\Meizitu.mdb" />
+    <None Include="Resources\mzitu.mdb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="UnityResource.resx">

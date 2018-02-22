@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Meizitu
+namespace mzitu
 {
     class UnityModule
     {
@@ -22,11 +22,11 @@ namespace Meizitu
         /// <summary>
         /// 数据库文件名称
         /// </summary>
-        private static readonly string DBName = "Meizitu.mdb";
+        private static readonly string DBName = "mzitu.mdb";
         /// <summary>
         /// 存档目录名称
         /// </summary>
-        private static readonly string CDName = "Meizitu";
+        private static readonly string CDName = "mzitu";
         /// <summary>
         /// 存档目录路径
         /// </summary>
@@ -35,6 +35,10 @@ namespace Meizitu
         /// 数据库路径
         /// </summary>
         public static readonly string DataBasePath = FileController.PathCombine(ContentDirectory, DBName);
+        /// <summary>
+        /// 新文章计数
+        /// </summary>
+        public static int NewArchiveCount = 0;
 
         /// <summary>
         /// 封装的函数以输出调试信息
