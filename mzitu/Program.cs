@@ -39,7 +39,6 @@ namespace mzitu
         
         static void Main(string[] args)
         {
-            //TODO: http://www.meizit.com/
             //TODO: http://www.mzitu.com/zipai/
 
             Console.WriteLine("{0}\t欢迎~", DateTime.Now);
