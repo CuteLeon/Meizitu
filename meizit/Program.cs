@@ -42,7 +42,7 @@ namespace meizit
             StartWork(GetPageLink(HomeAddress, StartPageIndex.ToString()));
 
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("\n任务结束，程序即将退出...");
+            Console.WriteLine("\n任务结束：{0}\n程序即将退出...", DateTime.Now.ToString());
             Console.Read();
             Process.Start("explorer.exe", DownloadDirectory);
         }
@@ -101,7 +101,7 @@ namespace meizit
                 int ErrorTime = 0;
                 ArticlePageLink = ArticleLinkQueue.Dequeue();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("开始任务 : {0}", ArticlePageLink);
+                Console.WriteLine("{0}\n开始任务 : {1}", DateTime.Now.ToString(), ArticlePageLink);
                 Debug.Print("开始任务：{0}", ArticlePageLink);
                 do
                 {
@@ -151,7 +151,7 @@ namespace meizit
                 DownloadImages(ImageLinks, ArticleDirectory);
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(" <<< 文章下载完成：{0} >>> ", ArticleHeader);
+                Console.WriteLine("———— <<< 文章下载完成：{0} >>> ————\n", ArticleHeader);
             }
         }
 
@@ -228,7 +228,6 @@ namespace meizit
         /// <returns></returns>
         private static bool DownloadImage(string ImageLink, string ImagePath)
         {
-            Debug.Print("开始下载：{0}", ImagePath);
             using (WebClient DownloadWebClient = new WebClient() { Encoding = Encoding.UTF8 })
             {
                 try
