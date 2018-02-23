@@ -133,7 +133,7 @@ namespace mzitu
             }
             Parallel.ForEach(ArchivePackageList, new Action<ArchiveModel>((ArchivePackage) => {
                 string ImagePath = string.Empty, ArchiveDirectory = string.Empty, TempTitle = ArchivePackage.Title;
-                TempTitle = TempTitle.Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s");
+                TempTitle = TempTitle.Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s").Replace("*", "_x");
                 ArchiveDirectory = Path.Combine(UnityModule.ContentDirectory, TempTitle);
                 try
                 {

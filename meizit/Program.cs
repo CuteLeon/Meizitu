@@ -127,7 +127,7 @@ namespace meizit
                 }
 
                 ArticleHeader= new Regex(HeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArticleString).Groups["ArticleHeader"].Value;
-                ArticleHeader = ArticleHeader.Trim().Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s");
+                ArticleHeader = ArticleHeader.Trim().Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s").Replace("*", "_x");
                 ArticleDirectory = Path.Combine(DownloadDirectory, ArticleHeader);
                 if (!TryCreateDirectory(ArticleDirectory)) continue;
 
