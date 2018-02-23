@@ -16,7 +16,7 @@ namespace meizit
         /// <summary>
         /// 开始文章ID
         /// </summary>
-        private static readonly int StartPageIndex = 1;
+        private static readonly int StartPageIndex = 234;
         /// <summary>
         /// 主页地址
         /// </summary>
@@ -127,7 +127,7 @@ namespace meizit
                 }
 
                 ArticleHeader= new Regex(HeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArticleString).Groups["ArticleHeader"].Value;
-                ArticleHeader = ArticleHeader.Trim();
+                ArticleHeader = ArticleHeader.Trim().Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s");
                 ArticleDirectory = Path.Combine(DownloadDirectory, ArticleHeader);
                 if (!TryCreateDirectory(ArticleDirectory)) continue;
 
@@ -171,8 +171,8 @@ namespace meizit
                 catch (Exception ex)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("创建目录遇到异常：{0}", ex.Message);
-                    Debug.Print("创建目录失败：{0}", ex.Message);
+                    Console.WriteLine("创建目录遇到异常：{0} / {1}",TargetDirectory, ex.Message);
+                    Debug.Print("创建目录失败：{0} / {1}", TargetDirectory, ex.Message);
                     return false;
                 }
             }
