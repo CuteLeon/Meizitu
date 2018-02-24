@@ -16,7 +16,7 @@ namespace meizit
         /// <summary>
         /// 开始文章ID
         /// </summary>
-        private static readonly int StartPageIndex = 234;
+        private static readonly int StartPageIndex = 1044;
         /// <summary>
         /// 主页地址
         /// </summary>
@@ -142,10 +142,11 @@ namespace meizit
                 {
                     ImageLink = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ImgLabel).Groups["ImageLink"].Value;
                     if (string.IsNullOrEmpty(ImageLink)) continue;
+                    if (ImageLink.StartsWith("/Public/"))
+                        ImageLink = "http://7xn4k4.com1.z0.glb.clouddn.com/@" + ImageLink;
+                    ImageLinks.Add(ImageLink);
                     Console.ForegroundColor = ConsoleColor.Magenta;
                     Console.WriteLine("发现图像链接：{0}", ImageLink);
-                    ImageLinks.Add(ImageLink);
-
                 }
                 Console.WriteLine("\t>>> 开始下载图像 ...");
                 DownloadImages(ImageLinks, ArticleDirectory);
