@@ -16,7 +16,7 @@ namespace meizit
         /// <summary>
         /// 开始文章ID
         /// </summary>
-        private static readonly int StartPageIndex = 1044;
+        private static readonly int StartPageIndex = 1;
         /// <summary>
         /// 主页地址
         /// </summary>
@@ -128,7 +128,8 @@ namespace meizit
 
                 ArticleHeader= new Regex(HeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArticleString).Groups["ArticleHeader"].Value;
                 ArticleHeader = ArticleHeader.Trim().Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s").Replace("*", "_x");
-                ArticleDirectory = Path.Combine(DownloadDirectory, ArticleHeader);
+                ArticleID = Path.GetFileNameWithoutExtension(ArticlePageLink);
+                ArticleDirectory = Path.Combine(DownloadDirectory, ArticleID + "-" + ArticleHeader);
                 if (!TryCreateDirectory(ArticleDirectory)) continue;
 
                 ArticleID = new Regex(PreviousLinkPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArticleString).Groups["ArticleID"].Value;
@@ -204,7 +205,7 @@ namespace meizit
                     if (File.Exists(ImagePath))
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine("图像下载成功：{0}", ImageLink);
+                        Console.WriteLine("图像下载成功：{0}", ImagePath);
                     }
                     else
                     {
@@ -216,7 +217,7 @@ namespace meizit
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine("图像已经存在：{0}", ImageLink);
+                    Console.WriteLine("图像已经存在：{0}", ImagePath);
                 }
             }));
         }
