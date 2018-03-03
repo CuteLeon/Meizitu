@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -39,6 +40,17 @@ namespace mzitu
         
         static void Main(string[] args)
         {
+            /*
+            DownloadArchive(new ArchiveModel() {
+                ArchiveID = 12316,
+                ArchiveLink = "http://www.mzitu.com/123216",
+                PublishDay = 3,
+                PublishMonth = 3,
+                PublishYear = 2018,
+                Title = "气质美女被五花大绑 挣扎姿态销魂撩人"
+            });
+             */
+
             //TODO: http://www.mzitu.com/zipai/
 
             Console.WriteLine("{0}\t欢迎~", DateTime.Now);
@@ -71,28 +83,36 @@ namespace mzitu
                     Console.Write("\n亲爱的 {0} ，要开始下载组图吗 ？(YES)\n\t", Environment.UserName);
                     Console.ForegroundColor = ConsoleColor.Red;
                 } while (Console.ReadLine().Trim().ToUpper() != "YES");
-
-                DownloadArchives(MaxDate);
-
-                if (ErrorArchiveLink.Count > 0)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("\n出错误的文章链接：\n    {0}", string.Join("\n    ", ErrorArchiveLink));
-                }
-
-                if (ErrorImageLink.Count > 0)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("\n出错误的图像链接：\n    {0}", string.Join("\n    ", ErrorImageLink));
-                }
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("\n\t\t未发现更新的文章...");
                 Console.WriteLine("—————— <<< Nothing to Download . >>> ——————");
+
+                do
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("\n是否重新下载最近两天更新的组图 ？(YES)\n\t");
+                    Console.ForegroundColor = ConsoleColor.Red;
+                } while (Console.ReadLine().Trim().ToUpper() != "YES");
+
+                MaxDate = DateTime.Today.Subtract(new TimeSpan(1,0,0,0));
+            }
+            DownloadArchives(MaxDate);
+
+            if (ErrorArchiveLink.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n出错误的文章链接：\n    {0}", string.Join("\n    ", ErrorArchiveLink));
             }
 
+            if (ErrorImageLink.Count > 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("\n出错误的图像链接：\n    {0}", string.Join("\n    ", ErrorImageLink));
+            }
+           
             ExitApplication(0);
         }
 
@@ -131,64 +151,8 @@ namespace mzitu
                 CatalogTable?.Clear();
                 CatalogTable?.Dispose();
             }
-            Parallel.ForEach(ArchivePackageList, new Action<ArchiveModel>((ArchivePackage) => {
-                string ImagePath = string.Empty, ArchiveDirectory = string.Empty, TempTitle = ArchivePackage.Title;
-                TempTitle = TempTitle.Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s").Replace("*", "_x");
-                ArchiveDirectory = Path.Combine(UnityModule.ContentDirectory, TempTitle);
-                try
-                {
-                    if (!Directory.Exists(ArchiveDirectory))
-                    {
-                        Console.WriteLine("创建新目录：{0}", ArchiveDirectory);
-                        Directory.CreateDirectory(ArchiveDirectory);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.Print(ArchiveDirectory);
-                    Console.WriteLine("创建文章目录失败：{0} / {1}", ArchiveDirectory, ex.Message);
-                }
-                UnityDBController.ExecuteNonQuery("DELETE FROM ImageBase WHERE ArchiveID = {0} ;", ArchivePackage.ArchiveID);
-                foreach (string ImageLink in ScanArchive(ArchivePackage.ArchiveLink))
-                {
-                    ImagePath = Path.Combine(ArchiveDirectory, Path.GetFileName(ImageLink));
-
-                    if (UnityDBController.ExecuteNonQuery("INSERT INTO ImageBase (ArchiveID, ImageLink, ImagePath) VALUES({0}, '{1}', '{2}') ;",
-                        ArchivePackage.ArchiveID, ImageLink, ImagePath))
-                    {
-                        if (!File.Exists(ImagePath))
-                        {
-                            using (WebClient DownloadWebClient = new WebClient() { Encoding = Encoding.UTF8 })
-                            {
-                                try
-                                {
-                                    //绕过防盗链（使用 Fiddler4 对比盗链和非盗链的HTTP请求头信息即可）
-                                    DownloadWebClient.Headers.Add(HttpRequestHeader.Referer, ArchivePackage.ArchiveLink);
-                                    DownloadWebClient.DownloadFile(ImageLink, ImagePath);
-                                }
-                                catch (Exception ex)
-                                {
-
-                                    UnityModule.DebugPrint("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
-                                    Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
-                                    lock (ErrorImageLink)
-                                    {
-                                        ErrorImageLink.Add(ImageLink);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("图像记录插入数据仓库失败：{0}", ImageLink);
-                    }
-                }
-
-                Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine("文章下载完成：{0}", ArchivePackage.Title);
+            Parallel.ForEach(ArchivePackageList, new Action<ArchiveModel>((ArchivePacket) => {
+                DownloadArchive(ArchivePacket);
             }));
 
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -255,6 +219,71 @@ namespace mzitu
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// 下载文章
+        /// </summary>
+        /// <param name="ArchivePacket">文章数据包</param>
+        private static void DownloadArchive(ArchiveModel ArchivePacket)
+        {
+            string ImagePath = string.Empty, ArchiveDirectory = string.Empty, TempTitle = ArchivePacket.Title;
+            TempTitle = TempTitle.Replace("?", "_w").Replace(":", "_m").Replace("\\", "_").Replace("/", "_f").Replace("|", "_s").Replace("*", "_x");
+            ArchiveDirectory = Path.Combine(UnityModule.ContentDirectory, TempTitle);
+            try
+            {
+                if (!Directory.Exists(ArchiveDirectory))
+                {
+                    Console.WriteLine("创建新目录：{0}", ArchiveDirectory);
+                    Directory.CreateDirectory(ArchiveDirectory);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.Print(ArchiveDirectory);
+                Console.WriteLine("创建文章目录失败：{0} / {1}", ArchiveDirectory, ex.Message);
+            }
+            UnityDBController.ExecuteNonQuery("DELETE FROM ImageBase WHERE ArchiveID = {0} ;", ArchivePacket.ArchiveID);
+            foreach (string ImageLink in ScanArchive(ArchivePacket.ArchiveLink))
+            {
+                ImagePath = Path.Combine(ArchiveDirectory, Path.GetFileName(ImageLink));
+
+                if (UnityDBController.ExecuteNonQuery("INSERT INTO ImageBase (ArchiveID, ImageLink, ImagePath) VALUES({0}, '{1}', '{2}') ;",
+                    ArchivePacket.ArchiveID, ImageLink, ImagePath))
+                {
+                    if (!File.Exists(ImagePath))
+                    {
+                        using (WebClient DownloadWebClient = new WebClient() { Encoding = Encoding.UTF8 })
+                        {
+                            try
+                            {
+                                //绕过防盗链（使用 Fiddler4 对比盗链和非盗链的HTTP请求头信息即可）
+                                DownloadWebClient.Headers.Add(HttpRequestHeader.Referer, ArchivePacket.ArchiveLink);
+                                DownloadWebClient.DownloadFile(ImageLink, ImagePath);
+                            }
+                            catch (Exception ex)
+                            {
+
+                                UnityModule.DebugPrint("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("下载图像遇到错误：{0} / {1}", ImageLink, ex.Message);
+                                lock (ErrorImageLink)
+                                {
+                                    ErrorImageLink.Add(ImageLink);
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("图像记录插入数据仓库失败：{0}", ImageLink);
+                }
+            }
+
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine("文章下载完成：{0}", ArchivePacket.Title);
         }
 
         /// <summary>
@@ -406,10 +435,10 @@ namespace mzitu
 
                 do
                 {
-                    if (ErrorTime ++> 0) Thread.Sleep(1000);
+                    if (ErrorTime++ > 0) Thread.Sleep(1000);
                     ArchiveString = GetHTML(ArchivePageLink);
                 }
-                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime <20);
+                while (string.IsNullOrEmpty(ArchiveString) && ErrorTime < 20);
                 if (string.IsNullOrEmpty(ArchiveString))
                 {
                     UnityModule.DebugPrint("下载页面失败多次，已跳过：{0}", ArchivePageLink);
@@ -428,7 +457,8 @@ namespace mzitu
                 ArchiveLinkQueue.Enqueue(ArchivePageLink);
                 yield return ArchiveMatch.Groups["ImageLink"].Value as string;
 
-                if (!ArchivePageLink.StartsWith(ArchiveLink)) yield break;
+                if (!ArchivePageLink.StartsWith(ArchiveLink))
+                    yield break;
                 //UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
             }
             yield break;
@@ -445,8 +475,23 @@ namespace mzitu
             {
                 using (WebClient UnityWebClient = new WebClient() { Encoding = Encoding.UTF8 })
                 {
+                    string ContentEncoding = string.Empty;
+                    byte[] HTMLBytes;
+                    UnityWebClient.Headers.Add("Accept-Encoding", "gzip, deflate");
                     UnityWebClient.BaseAddress = Pagelink;
-                    return UnityWebClient.DownloadString(Pagelink);
+                    HTMLBytes = UnityWebClient.DownloadData(Pagelink);
+
+                    ContentEncoding = UnityWebClient.ResponseHeaders.Get("Content-Encoding");
+                    if (!string.IsNullOrEmpty(ContentEncoding) && ContentEncoding.ToLower().Contains("gzip"))
+                    {
+                        using (GZipStream zipStream = new GZipStream(new MemoryStream(UnityWebClient.DownloadData(Pagelink)), CompressionMode.Decompress))
+                        using (StreamReader sr = new StreamReader(zipStream, Encoding.UTF8))
+                            return sr.ReadToEnd();
+                    }
+                    else
+                    {
+                        return Encoding.UTF8.GetString(HTMLBytes);
+                    }
                 }
             } catch(Exception ex)
             {
