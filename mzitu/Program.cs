@@ -5,12 +5,12 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace mzitu
 {
@@ -40,19 +40,9 @@ namespace mzitu
         
         static void Main(string[] args)
         {
-            /*
-            DownloadArchive(new ArchiveModel() {
-                ArchiveID = 12316,
-                ArchiveLink = "http://www.mzitu.com/123216",
-                PublishDay = 3,
-                PublishMonth = 3,
-                PublishYear = 2018,
-                Title = "气质美女被五花大绑 挣扎姿态销魂撩人"
+            Application.ThreadException+=new ThreadExceptionEventHandler((s,e)=> {
+                Console.Write(e.Exception.Message);
             });
-             */
-
-            //TODO: http://www.mzitu.com/zipai/
-
             Console.WriteLine("{0}\t欢迎~", DateTime.Now);
 
             do
@@ -93,11 +83,13 @@ namespace mzitu
                 do
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.Write("\n是否重新下载最近两天更新的组图 ？(YES)\n\t");
+                    Console.Write("\n是否重新下载最近当天更新的组图 ？(YES)\n\t");
                     Console.ForegroundColor = ConsoleColor.Red;
                 } while (Console.ReadLine().Trim().ToUpper() != "YES");
-
-                MaxDate = DateTime.Today.Subtract(new TimeSpan(1,0,0,0));
+                MaxDate = (DateTime)UnityDBController.ExecuteScalar(
+                    "SELECT MIN(PublishDate) FROM CatalogBase WHERE ScanDate = (SELECT TOP 1 ScanDate FROM CatalogBase ORDER BY ScanDate DESC)"
+                    );
+                //MaxDate = DateTime.Today.Subtract(new TimeSpan(1,0,0,0));
             }
             DownloadArchives(MaxDate);
 
@@ -260,6 +252,9 @@ namespace mzitu
                                 //绕过防盗链（使用 Fiddler4 对比盗链和非盗链的HTTP请求头信息即可）
                                 DownloadWebClient.Headers.Add(HttpRequestHeader.Referer, ArchivePacket.ArchiveLink);
                                 DownloadWebClient.DownloadFile(ImageLink, ImagePath);
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine("图像下载成功：{0}", ImagePath);
+                                UnityModule.DebugPrint("图像下载成功：{0}", ImagePath);
                             }
                             catch (Exception ex)
                             {
@@ -273,6 +268,11 @@ namespace mzitu
                                 }
                             }
                         }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                        Console.WriteLine("已经存在的图像：{0}", ImagePath);
                     }
                 }
                 else
@@ -321,11 +321,13 @@ namespace mzitu
                 }
                 else
                 {
-                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishDate, ArchiveLink) VALUES({0}, '{1}', #{2}#, '{3}') ;",
+                    if (UnityDBController.ExecuteNonQuery("INSERT INTO CatalogBase (ArchiveID, Title, PublishDate, ArchiveLink, ScanDate) VALUES({0}, '{1}', #{2}#, '{3}', #{4}#) ;",
                         ArchivePackage.ArchiveID,
                         ArchivePackage.Title,
                         string.Format("{0}/{1}/{2}",  ArchivePackage.PublishYear, ArchivePackage.PublishMonth, ArchivePackage.PublishDay),
-                        ArchivePackage.ArchiveLink))
+                        ArchivePackage.ArchiveLink,
+                        DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss")
+                    ))
                     {
                         UnityModule.NewArchiveCount++;
                         Console.ForegroundColor = ConsoleColor.Yellow;
@@ -509,6 +511,7 @@ namespace mzitu
             UnityDBController?.CloseConnection();
             Console.Read();
             if(ExitCode==0) Process.Start("explorer.exe", UnityModule.ContentDirectory);
+            Environment.Exit(ExitCode);
         }
 
     }
