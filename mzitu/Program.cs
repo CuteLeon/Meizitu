@@ -87,9 +87,8 @@ namespace mzitu
                     Console.ForegroundColor = ConsoleColor.Red;
                 } while (Console.ReadLine().Trim().ToUpper() != "YES");
                 MaxDate = (DateTime)UnityDBController.ExecuteScalar(
-                    "SELECT MIN(PublishDate) FROM CatalogBase WHERE ScanDate = (SELECT TOP 1 ScanDate FROM CatalogBase ORDER BY ScanDate DESC)"
+                    "SELECT MIN(PublishDate) FROM CatalogBase WHERE ScanDate = (SELECT MAX( ScanDate) FROM CatalogBase);"
                     );
-                //MaxDate = DateTime.Today.Subtract(new TimeSpan(1,0,0,0));
             }
             DownloadArchives(MaxDate);
 
