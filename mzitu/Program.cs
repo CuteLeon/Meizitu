@@ -56,7 +56,7 @@ namespace mzitu
             ShowEnvironment();
             if (!CheckRepositories()) ExitApplication(1);
             if (!ConnectDatabase()) ExitApplication(2);
-
+            
             DateTime MaxDate = DateTime.MinValue;
             object MaxDateObject = UnityDBController.ExecuteScalar("SELECT MAX(PublishDate) FROM CatalogBase ;");
             if (MaxDateObject != DBNull.Value) MaxDate = Convert.ToDateTime(MaxDateObject);
@@ -423,9 +423,9 @@ namespace mzitu
 
             int TempArchiveID = Convert.ToInt32(Path.GetFileName(ArchiveLink));
             string ArchivePageLink = string.Empty, ArchiveString = string.Empty;
-            string ImagePattern = "<div class=\"main-image\"><p><a href=\"(?<NextPageLink>.+?)\" ><img src=\"(?<ImageLink>.+?)\".*?/></a></p>";
+            string ImagePattern = "<p><a href=\"(?<NextPageLink>.+?)\" ><img src=\"(?<ImageLink>.+?)\".*?/></a></p>";
             Queue<string> ArchiveLinkQueue = new Queue<string>();
-            Match ArchiveMatch = null;
+            MatchCollection ArchiveMatch = null;
 
             ArchiveLinkQueue.Enqueue(ArchiveLink);
             while (ArchiveLinkQueue.Count > 0) 
@@ -452,15 +452,19 @@ namespace mzitu
                     continue;
                 }
 
-                ArchiveMatch = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Match(ArchiveString);
-                ArchivePageLink = ArchiveMatch.Groups["NextPageLink"].Value as string;
-                //一组照片的最后一张的链接会指向另一组照片
-                ArchiveLinkQueue.Enqueue(ArchivePageLink);
-                yield return ArchiveMatch.Groups["ImageLink"].Value as string;
+                ArchiveMatch = new Regex(ImagePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Matches(ArchiveString);
+                foreach (Match match in ArchiveMatch)
+                {
+                    ArchivePageLink = match.Groups["NextPageLink"].Value as string;
+                    //一组照片的最后一张的链接会指向另一组照片
+                    if (!ArchiveLinkQueue.Contains(ArchivePageLink))
+                        ArchiveLinkQueue.Enqueue(ArchivePageLink);
+                    yield return match.Groups["ImageLink"].Value as string;
 
-                if (!ArchivePageLink.StartsWith(ArchiveLink))
-                    yield break;
-                //UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
+                    if (!ArchivePageLink.StartsWith(ArchiveLink))
+                        yield break;
+                    //UnityModule.DebugPrint("发现新链接：{0}", ArchivePageLink);
+                }
             }
             yield break;
         }
